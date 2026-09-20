@@ -2,7 +2,7 @@ export default function HistoryHomePage() {
   return <main className="history-hub">
     <p className="history-hub__eyebrow">The Arcades / History</p>
     <h1>Small observatories of living history.</h1>
-    <p className="history-hub__intro">Source-backed, openly unfinished projects for looking at communities, places, and the evidence they leave behind.</p>
+    <p className="history-hub__intro">Alpha projects: source-backed, openly unfinished ways of looking at communities, places, and the evidence they leave behind. Corrections are reviewed before the record changes.</p>
     <hr className="history-hub__rule" />
     <section aria-labelledby="projects-heading">
       <h2 id="projects-heading">Projects</h2>

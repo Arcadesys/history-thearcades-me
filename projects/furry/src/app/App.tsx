@@ -9,6 +9,7 @@ import { parseQuery, type ParsedQuery } from "../features/query/parser";
 import { TimelineScrubber } from "../features/timeline/TimelineScrubber";
 import { useTheme } from "../features/theme/ThemeProvider";
 import { LENS_LABELS, type LensLabel } from "../shared/lenses";
+import { DisputeLink, makeDisputeTarget } from "../features/dispute/DisputeLink";
 
 const START_YEAR = 1994;
 const END_YEAR = 2026;
@@ -82,7 +83,7 @@ function sourceItems(visibleEvents: readonly HistoricalEvent[], series: readonly
   const requested = support.size ? sources.filter((source) => support.has(source.id)) : sources.slice(0, 3);
   return requested.map((source) => {
     const details = support.get(source.id);
-    return { id: source.id, title: source.title, description: details?.descriptions[0] ?? "Background source for this historical sampler.", confidence: details?.confidence ?? (source.evidenceType === "tertiary" ? "low" : "medium"), href: source.url, locator: source.locator, sourceType: source.evidenceType, available: true };
+    return { id: source.id, title: source.title, description: details?.descriptions[0] ?? "Background source for this historical sampler.", confidence: details?.confidence ?? (source.evidenceType === "tertiary" ? "low" : "medium"), href: source.url, locator: source.locator, sourceType: source.evidenceType, available: true, target: makeDisputeTarget("source", source.id, `${source.title}: ${source.url}`, [source.id]) };
   });
 }
 
@@ -90,7 +91,7 @@ function EventTimeline({ items, selectedYear }: { items: readonly HistoricalEven
   const nearby = closestEvents(items, selectedYear);
   return <section className="event-timeline" aria-labelledby="timeline-heading">
     <div className="section-heading-row"><div><h2 id="timeline-heading">Around {selectedYear}</h2><p>Nearest dated records in the selected lens and query range.</p></div><span className="record-count">{items.length} source-backed records</span></div>
-    {nearby.length ? <ol>{nearby.map((event) => <li key={event.id} className={yearOf(event) === selectedYear ? "is-current" : undefined}><time dateTime={event.dateStart}>{yearOf(event)}</time><div><h3>{event.title}</h3><p>{event.summary}</p><span>{event.confidence} confidence</span></div></li>)}</ol> : <p className="empty-state">No dated records match this view. Clear the query or choose another lens.</p>}
+    {nearby.length ? <ol>{nearby.map((event) => { const target = makeDisputeTarget("timeline-event", event.id, `${event.dateStart}${event.dateEnd ? ` through ${event.dateEnd}` : ""} — ${event.title}: ${event.summary}`, event.evidence.map((item) => item.sourceId)); return <li key={event.id} className={yearOf(event) === selectedYear ? "is-current" : undefined}><time dateTime={event.dateStart}>{yearOf(event)}</time><div><h3>{event.title}</h3><p>{event.summary}</p><span>{event.confidence} confidence</span><DisputeLink target={target} /></div></li>; })}</ol> : <p className="empty-state">No dated records match this view. Clear the query or choose another lens.</p>}
   </section>;
 }
 
@@ -132,7 +133,6 @@ export function App() {
     <nav className="lens-nav" aria-label="Historical lenses">{LENS_LABELS.map((lens) => <button type="button" key={lens} aria-pressed={activeLens === lens} className={activeLens === lens ? "lens-button active" : "lens-button"} onClick={() => chooseLens(lens)}>{lens}</button>)}<p>View history through different lenses.</p></nav>
     <div className={evidenceOpen ? "board-layout evidence-is-open" : "board-layout"}><div className="board-main"><ProminenceChart series={visibleSeries} selectedYear={selectedYear} onSelectedYearChange={setSelectedYear} startYear={START_YEAR} endYear={END_YEAR} /><TimelineScrubber min={START_YEAR} max={END_YEAR} value={selectedYear} onChange={setSelectedYear} /><button type="button" className="table-toggle" aria-expanded={tableOpen} onClick={() => setTableOpen((open) => !open)}>{tableOpen ? "Hide data table" : "View data table"}</button>{tableOpen ? <ProminenceTable series={visibleSeries} /> : null}</div><EvidenceRegion items={evidence} open={evidenceOpen} onOpenChange={setEvidenceOpen} showToggle={false} /></div>
     <EventTimeline items={filteredEvents} selectedYear={selectedYear} />
-    <footer className="site-footer"><p>Sampler version {historyDataset.version}. This prototype is intentionally incomplete and preserves uncertainty.</p></footer>
+    <footer className="site-footer"><p>Sampler version {historyDataset.version}. Alpha: this prototype is intentionally incomplete, source-backed, and open to reviewed corrections.</p></footer>
   </main>;
 }
-

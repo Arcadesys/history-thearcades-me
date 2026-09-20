@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { DisputeLink } from "../dispute/DisputeLink";
+import type { DisputeTarget } from "@/lib/furry-history-mcp";
 
 export type EvidenceConfidence = "high" | "medium" | "low";
-export type EvidenceItem = { id: string; title: string; description: string; confidence: EvidenceConfidence; available?: boolean; href?: string; locator?: string; sourceType?: string };
+export type EvidenceItem = { id: string; title: string; description: string; confidence: EvidenceConfidence; available?: boolean; href?: string; locator?: string; sourceType?: string; target?: DisputeTarget };
 type EvidenceRegionProps = { items: EvidenceItem[]; open: boolean; onOpenChange: (open: boolean) => void; title?: string; showToggle?: boolean };
 
 const confidenceLabel: Record<EvidenceConfidence, string> = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" };
@@ -52,7 +54,7 @@ export function EvidenceRegion({ items, open, onOpenChange, title = "Why this vi
           <span><strong>{item.title}</strong><span>{item.description}</span></span><ChevronIcon open={expanded === item.id} />
         </button>
         <p className="evidence-card__confidence">{item.available === false ? "Source unavailable" : confidenceLabel[item.confidence]}</p>
-        {expanded === item.id && <div className="evidence-card__details">{item.available === false ? <p>This source is currently unavailable; the view remains marked as incomplete.</p> : <><dl><div><dt>Source type</dt><dd>{item.sourceType ?? "Unspecified"}</dd></div>{item.locator ? <div><dt>Locator</dt><dd>{item.locator}</dd></div> : null}</dl>{item.href ? <a href={item.href} target="_blank" rel="noreferrer">Open source</a> : <p>No public link is recorded for this source.</p>}</>}</div>}
+        {expanded === item.id && <div className="evidence-card__details">{item.available === false ? <p>This source is currently unavailable; the view remains marked as incomplete.</p> : <><dl><div><dt>Source type</dt><dd>{item.sourceType ?? "Unspecified"}</dd></div>{item.locator ? <div><dt>Locator</dt><dd>{item.locator}</dd></div> : null}</dl>{item.href ? <a href={item.href} target="_blank" rel="noreferrer">Open source</a> : <p>No public link is recorded for this source.</p>}</>}{item.target ? <DisputeLink target={item.target} /> : null}</div>}
       </article>)}</div>
       <p className="evidence-region__footer">Sources help explain this view, not a single definitive truth.</p>
     </aside>}
