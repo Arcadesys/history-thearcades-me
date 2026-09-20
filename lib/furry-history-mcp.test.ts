@@ -109,3 +109,22 @@ test("legacy recordId remains compatible and issue context is encoded exactly", 
   assert.doesNotMatch(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry#/);
   assert.match(body, /Stable target ID: anthrocon-1997/);
 });
+
+test("validates recordId and expanded target independently", () => {
+  assert.throws(
+    () => prepareFeedback({ recordId: "event:not-real", target: { kind: "person", id: "fred-patten" }, feedback: "Correction" }),
+    /recordId does not match/,
+  );
+  assert.throws(
+    () => prepareFeedback({ recordId: "person:fred-patten", target: { kind: "source", id: "not-real" }, feedback: "Correction" }),
+    /target reference does not match/,
+  );
+  assert.throws(
+    () => prepareFeedback({ recordId: "person:fred-patten", target: { kind: "source", id: "anthrocon-history" }, feedback: "Correction" }),
+    /conflicting corpus records/,
+  );
+  const matching = prepareFeedback({ recordId: "event:volle-2005-tim-susman", target: { kind: "person-event", id: "volle-2005-tim-susman" }, feedback: "Correction" });
+  assert.equal(matching.target?.kind, "person-event");
+  assert.equal(matching.target?.id, "volle-2005-tim-susman");
+  assert.equal(matching.submitted, false);
+});

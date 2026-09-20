@@ -252,10 +252,16 @@ function targetFromExpandedRef(args: Record<string, unknown>): DisputeTarget | u
 export function resolveDisputeTarget(args: unknown): DisputeTarget | undefined {
   if (!args || typeof args !== "object") throw new Error("Arguments must be an object.");
   const recordId = textArg(args, "recordId", { max: 160 });
-  const expanded = targetFromExpandedRef(args as Record<string, unknown>);
-  if (expanded) return expanded;
-  if (recordId) return targetFromRecordId(recordId);
-  return undefined;
+  const input = args as Record<string, unknown>;
+  const hasExpandedTarget = "target" in input || "targetId" in input || "targetKind" in input;
+  const recordTarget = recordId ? targetFromRecordId(recordId) : undefined;
+  const expandedTarget = hasExpandedTarget ? targetFromExpandedRef(input) : undefined;
+  if (recordId && !recordTarget) throw new Error("recordId does not match a corpus record.");
+  if (hasExpandedTarget && !expandedTarget) throw new Error("target reference does not match a corpus record.");
+  if (recordTarget && expandedTarget && (recordTarget.kind !== expandedTarget.kind || recordTarget.id !== expandedTarget.id)) {
+    throw new Error("recordId and target reference identify conflicting corpus records.");
+  }
+  return expandedTarget ?? recordTarget;
 }
 
 export function buildDisputeIssueUrl(target: DisputeTarget | null, details: DisputeDetails): string {
