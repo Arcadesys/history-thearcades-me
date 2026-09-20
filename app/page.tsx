@@ -12,8 +12,8 @@ export default function HistoryHomePage() {
           <a href="/furry">Explore the board <span aria-hidden="true">→</span></a>
         </article>
         <article className="history-project-card">
-          <div><h2>More histories soon</h2><p>This hub is designed for additional small, evidence-led history projects.</p></div>
-          <p aria-label="Status">In progress</p>
+          <div><h2>Cultural Weather Vane</h2><p>Music and news mapped together as cultural atmosphere across twelve sampled years.</p></div>
+          <a href="/music">Explore the weather <span aria-hidden="true">→</span></a>
         </article>
       </div>
     </section>
