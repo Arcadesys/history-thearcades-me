@@ -1,6 +1,6 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { historyDataset } from "@/projects/furry/src/data/seed";
-import type { EvidenceRef, HistoricalEvent, PersonEvent, PersonNode, ProminencePoint, ProminenceSeries, Source } from "@/projects/furry/src/data/contracts";
+import type { AwardWork, EvidenceRef, HistoricalEvent, PersonEvent, PersonNode, ProminencePoint, ProminenceSeries, Source } from "@/projects/furry/src/data/contracts";
 
 const BOARD_URL = "https://history.thearcades.me/furry";
 const GITHUB_ISSUES_URL = "https://github.com/Arcadesys/history-thearcades-me/issues/new";
@@ -10,12 +10,13 @@ const SEARCH_STOP_WORDS = new Set(["a", "an", "and", "did", "for", "in", "is", "
 type SearchResult = { id: string; title: string; url: string };
 type FetchResult = { id: string; title: string; text: string; url: string; metadata: Record<string, unknown> };
 
-export type DisputeTargetKind = "prominence-point" | "timeline-event" | "source" | "person" | "person-event";
+export type DisputeTargetKind = "prominence-point" | "timeline-event" | "source" | "person" | "person-event" | "award-work";
 export type DisputeTarget = { kind: DisputeTargetKind; id: string; claim: string; datasetVersion: string; canonicalUrl: string; sourceIds: readonly string[] };
 export type DisputeDetails = { feedback: string; evidenceUrl?: string; credit?: string };
 
 const sourceById = new Map(historyDataset.sources.map((source) => [source.id, source]));
 const personById = new Map(historyDataset.people.map((person) => [person.id, person]));
+const awardWorkById = new Map(historyDataset.awardWorks.map((work) => [work.id, work]));
 const eventsByPerson = new Map<string, PersonEvent[]>();
 for (const event of historyDataset.personEvents) {
   const current = eventsByPerson.get(event.personId) ?? [];
@@ -69,6 +70,18 @@ function searchableEvent(event: PersonEvent): string {
   ].filter(Boolean).join(" ").toLocaleLowerCase();
 }
 
+function searchableAwardWork(work: AwardWork): string {
+  return [
+    work.title,
+    work.publishedYear,
+    work.format,
+    ...work.creators.flatMap((creator) => [creator.name, creator.role]),
+    work.summary,
+    ...work.themes.map((theme) => theme.label),
+    ...work.recognitions.flatMap((recognition) => [recognition.program, recognition.awardYear, recognition.category, recognition.standing]),
+  ].join(" ").toLocaleLowerCase();
+}
+
 function score(haystack: string, query: string): number {
   if (!query) return 1;
   if (haystack === query) return 100;
@@ -96,7 +109,11 @@ export function searchFurryHistory(query: string): SearchResult[] {
       item: { id: `event:${event.id}`, title: `${event.dateStart.slice(0, 4)} — ${person?.label ?? "Unknown person"}: ${event.headline}`, url: canonicalUrl(event.evidence) },
     };
   });
-  return [...people, ...events]
+  const works = historyDataset.awardWorks.map((work) => ({
+    score: score(searchableAwardWork(work), normalized),
+    item: { id: `work:${work.id}`, title: `${work.publishedYear} — ${work.title}`, url: canonicalUrl(work.evidence) },
+  }));
+  return [...people, ...events, ...works]
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score || a.item.title.localeCompare(b.item.title))
     .slice(0, MAX_RESULTS)
@@ -179,6 +196,33 @@ function fetchEvent(event: PersonEvent): FetchResult {
   };
 }
 
+function fetchAwardWork(work: AwardWork): FetchResult {
+  return {
+    id: `work:${work.id}`,
+    title: `${work.publishedYear} — ${work.title}`,
+    text: [
+      `Creators: ${work.creators.map((creator) => `${creator.name} (${creator.role})`).join(", ")}`,
+      `Format: ${work.format}`,
+      `Claim confidence: ${work.confidence}`,
+      `Summary: ${work.summary}`,
+      `Themes: ${work.themes.map((theme) => `${theme.label} [${theme.basis}]`).join("; ")}`,
+      `Recognition: ${work.recognitions.map((recognition) => `${recognition.awardYear} ${recognition.program} ${recognition.category} — ${recognition.standing}`).join("; ")}`,
+    ].join("\n"),
+    url: canonicalUrl(work.evidence),
+    metadata: {
+      kind: "award-work",
+      corpusVersion: historyDataset.version,
+      publishedYear: work.publishedYear,
+      format: work.format,
+      creators: work.creators,
+      themes: work.themes.map((theme) => ({ label: theme.label, basis: theme.basis, sources: sourceMetadata(theme.evidence) })),
+      recognitions: work.recognitions.map((recognition) => ({ ...recognition, sources: sourceMetadata(recognition.evidence), evidence: undefined })),
+      summarySources: sourceMetadata(work.summaryEvidence),
+      sources: sourceMetadata(work.evidence),
+    },
+  };
+}
+
 export function fetchFurryHistory(id: string): FetchResult | undefined {
   const [kind, recordId] = id.split(":", 2);
   if (!recordId) return undefined;
@@ -190,6 +234,10 @@ export function fetchFurryHistory(id: string): FetchResult | undefined {
     const event = historyDataset.personEvents.find((item) => item.id === recordId);
     return event ? fetchEvent(event) : undefined;
   }
+  if (kind === "work") {
+    const work = awardWorkById.get(recordId);
+    return work ? fetchAwardWork(work) : undefined;
+  }
   return undefined;
 }
 
@@ -200,6 +248,11 @@ function eventClaim(event: HistoricalEvent): string {
 function personEventClaim(event: PersonEvent): string {
   const person = personById.get(event.personId);
   return `${event.dateStart}${event.dateEnd ? ` through ${event.dateEnd}` : ""} — ${person?.label ?? event.personId}: ${event.headline} — ${event.description}`;
+}
+
+function awardWorkClaim(work: AwardWork): string {
+  const recognition = work.recognitions.map((item) => `${item.awardYear} ${item.program} ${item.category}: ${item.standing}`).join("; ");
+  return `${work.title} by ${work.creators.map((creator) => creator.name).join(", ")}. ${recognition}. ${work.summary}`;
 }
 
 function prominencePointId(series: ProminenceSeries, point: ProminencePoint): string {
@@ -219,6 +272,10 @@ function targetFromRecordId(recordId: string): DisputeTarget | undefined {
     const personEvent = historyDataset.personEvents.find((item) => item.id === id);
     if (personEvent) return { kind: "person-event", id: personEvent.id, claim: personEventClaim(personEvent), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: personEvent.evidence.map((item) => item.sourceId) };
   }
+  if (kind === "work") {
+    const work = awardWorkById.get(id);
+    return work ? { kind: "award-work", id: work.id, claim: awardWorkClaim(work), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: work.evidence.map((item) => item.sourceId) } : undefined;
+  }
   return undefined;
 }
 
@@ -227,7 +284,7 @@ function targetFromExpandedRef(args: Record<string, unknown>): DisputeTarget | u
   const kind = typeof args.targetKind === "string" ? args.targetKind : target && typeof target === "object" ? (target as Record<string, unknown>).kind : undefined;
   const id = typeof args.targetId === "string" ? args.targetId : target && typeof target === "object" ? (target as Record<string, unknown>).id : typeof target === "string" ? target : undefined;
   if (typeof kind !== "string" || typeof id !== "string") return undefined;
-  if (!["prominence-point", "timeline-event", "source", "person", "person-event"].includes(kind)) throw new Error("target kind is not supported.");
+  if (!["prominence-point", "timeline-event", "source", "person", "person-event", "award-work"].includes(kind)) throw new Error("target kind is not supported.");
   if (kind === "source") {
     const source = sourceById.get(id);
     return source ? { kind: "source", id: source.id, claim: `${source.title}: ${source.url}`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: [source.id] } : undefined;
@@ -241,6 +298,7 @@ function targetFromExpandedRef(args: Record<string, unknown>): DisputeTarget | u
     const event = historyDataset.personEvents.find((item) => item.id === id);
     return event ? { kind: "person-event", id: event.id, claim: personEventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
   }
+  if (kind === "award-work") return targetFromRecordId(`work:${id}`);
   const separator = id.lastIndexOf(":");
   const seriesId = separator === -1 ? id : id.slice(0, separator);
   const year = separator === -1 ? NaN : Number(id.slice(separator + 1));
@@ -325,8 +383,8 @@ export const furryHistoryToolDefinitions: Tool[] = [
   {
     name: "fetch",
     title: "Fetch a furry-history record",
-    description: "Use this after search to retrieve one person or person-event with its dates, confidence, evidence, and related record IDs.",
-    inputSchema: { type: "object", properties: { id: { type: "string", description: "A search result ID beginning with person: or event:." } }, required: ["id"], additionalProperties: false },
+    description: "Use this after search to retrieve one person, person-event, or award work with its dates, confidence, evidence, themes, and related record IDs.",
+    inputSchema: { type: "object", properties: { id: { type: "string", description: "A search result ID beginning with person:, event:, or work:." } }, required: ["id"], additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
@@ -336,9 +394,9 @@ export const furryHistoryToolDefinitions: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        recordId: { type: "string", description: "Compatibility reference: person: or event: ID from search." },
-        target: { type: "object", description: "Expanded target reference. Use kind plus stable id for a prominence-point, timeline-event, source, person, or person-event.", properties: { kind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event"] }, id: { type: "string" } }, required: ["kind", "id"], additionalProperties: false },
-        targetKind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event"], description: "Expanded target kind, used with targetId." },
+        recordId: { type: "string", description: "Compatibility reference: person:, event:, or work: ID from search." },
+        target: { type: "object", description: "Expanded target reference. Use kind plus stable id for a prominence-point, timeline-event, source, person, person-event, or award-work.", properties: { kind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event", "award-work"] }, id: { type: "string" } }, required: ["kind", "id"], additionalProperties: false },
+        targetKind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event", "award-work"], description: "Expanded target kind, used with targetId." },
         targetId: { type: "string", description: "Expanded stable target ID, used with targetKind." },
         feedback: { type: "string", maxLength: 1200, description: "The correction, recollection, missing context, or suggested addition." },
         evidenceUrl: { type: "string", description: "Optional absolute HTTP(S) link to supporting evidence." },

@@ -8,6 +8,10 @@ export type PersonEventType = "debut" | "founds" | "publishes" | "organizes" | "
 export type HistoricalSignificance = "creative" | "institutional" | "technical" | "commercial" | "social" | "historiographic";
 export type ClaimConfidence = "primary" | "well-attested" | "secondary" | "needs-research";
 export type DatePrecision = "day" | "month" | "year" | "range" | "decade";
+export type AwardProgram = "ursa-major" | "coyotl";
+export type AwardStanding = "winner" | "finalist" | "nominee" | "recommended";
+export type AwardWorkFormat = "novel" | "novella" | "short-fiction" | "anthology" | "nonfiction-collection";
+export type ThemeBasis = "source-stated" | "editorial-analysis";
 
 export interface Source { readonly id: string; readonly title: string; readonly url: string; readonly accessedAt: ISODate; readonly evidenceType: EvidenceType; readonly locator?: string; }
 export interface EvidenceRef { readonly sourceId: string; readonly supports: string; readonly confidence: Confidence; readonly notes?: string; }
@@ -16,7 +20,11 @@ export interface HistoricalEvent { readonly id: string; readonly dateStart: ISOD
 export interface PlaceNode { readonly id: string; readonly label: string; readonly kind: PlaceKind; readonly geography?: string; readonly measurements: readonly Measurement[]; readonly evidence: readonly EvidenceRef[]; }
 export interface PersonNode { readonly id: string; readonly label: string; readonly aliases: readonly string[]; readonly roles: readonly string[]; readonly relationshipToFandom: FandomRelationship; readonly evidence: readonly EvidenceRef[]; }
 export interface PersonEvent { readonly id: string; readonly dateStart: ISODate; readonly dateEnd?: ISODate; readonly datePrecision: DatePrecision; readonly personId: string; readonly roles: readonly string[]; readonly eventType: PersonEventType; readonly headline: string; readonly description: string; readonly work?: string; readonly organizations: readonly string[]; readonly tags: readonly string[]; readonly significance: readonly HistoricalSignificance[]; readonly evidence: readonly EvidenceRef[]; readonly confidence: ClaimConfidence; }
+export interface AwardCreator { readonly name: string; readonly role: "author" | "editor"; readonly personId?: string; }
+export interface AwardTheme { readonly label: string; readonly basis: ThemeBasis; readonly evidence: readonly EvidenceRef[]; }
+export interface AwardRecognition { readonly program: AwardProgram; readonly awardYear: number; readonly category: string; readonly standing: AwardStanding; readonly evidence: readonly EvidenceRef[]; }
+export interface AwardWork { readonly id: string; readonly title: string; readonly publishedYear: number; readonly format: AwardWorkFormat; readonly creators: readonly AwardCreator[]; readonly summary: string; readonly summaryEvidence: readonly EvidenceRef[]; readonly themes: readonly AwardTheme[]; readonly recognitions: readonly AwardRecognition[]; readonly evidence: readonly EvidenceRef[]; readonly confidence: ClaimConfidence; }
 export interface ProminenceEdge { readonly id: string; readonly from: string; readonly to: string; readonly displayIndex?: number; readonly basis: string; readonly metric: "relative_prominence_index"; readonly evidence: readonly EvidenceRef[]; readonly confidence: Confidence; }
 export interface ProminencePoint { readonly year: number; readonly value: number; readonly confidence: Confidence; readonly sourceIds: readonly string[]; readonly basis: string; readonly kind: "editorial-anchor" | "editorial-interpolated"; }
 export interface ProminenceSeries { readonly id: string; readonly label: string; readonly points: readonly ProminencePoint[]; readonly metric: "relative_prominence_index"; readonly nonliteral: true; readonly pattern: "solid" | "dashed" | "dotted" | "dash-dot" | "long-dash"; readonly marker: "circle" | "square" | "triangle" | "diamond" | "cross"; }
-export interface HistoryDataset { readonly version: string; readonly sources: readonly Source[]; readonly events: readonly HistoricalEvent[]; readonly personEvents: readonly PersonEvent[]; readonly places: readonly PlaceNode[]; readonly people: readonly PersonNode[]; readonly edges: readonly ProminenceEdge[]; readonly prominenceSeries: readonly ProminenceSeries[]; }
+export interface HistoryDataset { readonly version: string; readonly sources: readonly Source[]; readonly events: readonly HistoricalEvent[]; readonly personEvents: readonly PersonEvent[]; readonly awardWorks: readonly AwardWork[]; readonly places: readonly PlaceNode[]; readonly people: readonly PersonNode[]; readonly edges: readonly ProminenceEdge[]; readonly prominenceSeries: readonly ProminenceSeries[]; }

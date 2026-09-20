@@ -6,7 +6,7 @@ Alpha means the projects are incomplete by design. Claims are assembled from rec
 
 ## Projects
 
-- [Furry History Board](https://history.thearcades.me/furry) — print, conventions, online communities, and people.
+- [Furry History Board](https://history.thearcades.me/furry) — print, conventions, online communities, people, and a sourced literary-awards pilot.
 - Cultural Weather Vane — music and news mapped together as cultural atmosphere.
 
 ## Development

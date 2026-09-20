@@ -29,6 +29,18 @@ test("search finds aliases, dates, organizations, and themes", () => {
     searchFurryHistory("2005 Fur Affinity").map((item) => item.id),
     ["event:fur-affinity-2005-alkora", "event:fur-affinity-2005-dragoneer"],
   );
+  assert.ok(searchFurryHistory("Austen Crowder").some((item) => item.id === "work:painted-cat-2015"));
+  assert.ok(searchFurryHistory("identity passing").some((item) => item.id === "work:painted-cat-2015"));
+  assert.ok(searchFurryHistory("2015 coyotl winner").some((item) => item.id.startsWith("work:")));
+});
+
+test("fetch returns award status, creators, sourced summaries, and labeled themes", () => {
+  const work = fetchFurryHistory("work:painted-cat-2015");
+  assert.equal(work?.metadata.kind, "award-work");
+  assert.match(work?.text ?? "", /Austen Crowder/);
+  assert.match(work?.text ?? "", /recommended/);
+  assert.match(work?.text ?? "", /editorial-analysis/);
+  assert.ok(Array.isArray(work?.metadata.summarySources));
 });
 
 test("fetch returns a person timeline and event evidence", () => {
@@ -63,7 +75,7 @@ test("feedback is prepared for review without claiming submission", () => {
   const issueUrl = new URL(packet.submissionUrl);
   assert.equal(issueUrl.searchParams.get("template"), "data-dispute.yml");
   assert.equal(issueUrl.searchParams.get("labels"), "data-dispute");
-  assert.match(issueUrl.searchParams.get("body") ?? "", /Dataset version: v2-people-corpus-2026-09-20/);
+  assert.match(issueUrl.searchParams.get("body") ?? "", /Dataset version: v3-awards-pilot-2026-09-20/);
   assert.match(issueUrl.searchParams.get("body") ?? "", /Please ask before attributing/);
   assert.doesNotMatch(packet.submissionUrl, /^mailto:/);
 });
@@ -82,17 +94,26 @@ test("resolves every supported dispute target kind with stable context", () => {
     [{ target: { kind: "source", id: "anthrocon-history" } }, "source"],
     [{ targetKind: "person", targetId: "fred-patten" }, "person"],
     [{ target: { kind: "person-event", id: "volle-2005-tim-susman" } }, "person-event"],
+    [{ target: { kind: "award-work", id: "painted-cat-2015" } }, "award-work"],
   ] as const;
   for (const [args, kind] of cases) {
     const target = resolveDisputeTarget(args);
     assert.equal(target?.kind, kind);
     assert.ok(target?.id);
     assert.ok(target?.claim);
-    assert.equal(target?.datasetVersion, "v2-people-corpus-2026-09-20");
+    assert.equal(target?.datasetVersion, "v3-awards-pilot-2026-09-20");
     assert.equal(target?.canonicalUrl, "https://history.thearcades.me/furry");
     assert.doesNotMatch(target?.canonicalUrl ?? "", /#/);
     assert.ok(target?.sourceIds.length);
   }
+});
+
+test("award work recordIds are compatible with expanded dispute targets", () => {
+  const matching = prepareFeedback({ recordId: "work:painted-cat-2015", target: { kind: "award-work", id: "painted-cat-2015" }, feedback: "Please review this theme." });
+  assert.equal(matching.target?.kind, "award-work");
+  assert.equal(matching.target?.id, "painted-cat-2015");
+  assert.equal(matching.submitted, false);
+  assert.match(new URL(matching.submissionUrl).searchParams.get("body") ?? "", /Austen Crowder/);
 });
 
 test("legacy recordId remains compatible and issue context is encoded exactly", () => {

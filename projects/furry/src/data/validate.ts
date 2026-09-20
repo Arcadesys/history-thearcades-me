@@ -9,6 +9,7 @@ export function validateDataset(dataset: HistoryDataset): string[] {
     ...dataset.sources.map((item) => item.id),
     ...dataset.events.map((item) => item.id),
     ...dataset.personEvents.map((item) => item.id),
+    ...dataset.awardWorks.map((item) => item.id),
     ...dataset.places.map((item) => item.id),
     ...dataset.people.map((item) => item.id),
     ...dataset.edges.map((item) => item.id),
@@ -43,6 +44,21 @@ export function validateDataset(dataset: HistoryDataset): string[] {
     if (!event.significance.length) errors.push(`person event ${event.id}: missing significance`);
     if (!evidenceOk(event.evidence, sourceIds)) errors.push(`person event ${event.id}: missing/dangling evidence`);
     if (event.confidence === "primary" && event.evidence.every((item) => dataset.sources.find((source) => source.id === item.sourceId)?.evidenceType !== "primary")) errors.push(`person event ${event.id}: primary confidence without primary evidence`);
+  });
+  dataset.awardWorks.forEach((work) => {
+    if (!Number.isInteger(work.publishedYear) || work.publishedYear < 1900 || work.publishedYear > 2026) errors.push(`award work ${work.id}: bad published year`);
+    if (!work.creators.length) errors.push(`award work ${work.id}: missing creators`);
+    work.creators.forEach((creator) => { if (creator.personId && !personIds.has(creator.personId)) errors.push(`award work ${work.id}: dangling creator ${creator.personId}`); });
+    if (!work.summary.trim() || !evidenceOk(work.summaryEvidence, sourceIds)) errors.push(`award work ${work.id}: missing summary evidence`);
+    if (!work.themes.length) errors.push(`award work ${work.id}: missing themes`);
+    work.themes.forEach((theme) => { if (!theme.label.trim() || !evidenceOk(theme.evidence, sourceIds)) errors.push(`award work ${work.id}: invalid theme ${theme.label || "unnamed"}`); });
+    if (!work.recognitions.length) errors.push(`award work ${work.id}: missing recognitions`);
+    work.recognitions.forEach((recognition) => {
+      if (!Number.isInteger(recognition.awardYear) || recognition.awardYear < 2001 || recognition.awardYear > 2026) errors.push(`award work ${work.id}: bad award year`);
+      if (!evidenceOk(recognition.evidence, sourceIds)) errors.push(`award work ${work.id}: missing recognition evidence`);
+    });
+    if (!evidenceOk(work.evidence, sourceIds)) errors.push(`award work ${work.id}: missing/dangling evidence`);
+    if (work.confidence === "primary" && work.evidence.every((item) => dataset.sources.find((source) => source.id === item.sourceId)?.evidenceType !== "primary")) errors.push(`award work ${work.id}: primary confidence without primary evidence`);
   });
   dataset.edges.forEach((edge) => { if (!entityIds.has(edge.from) || !entityIds.has(edge.to)) errors.push(`edge ${edge.id}: dangling endpoint`); if (!evidenceOk(edge.evidence, sourceIds)) errors.push(`edge ${edge.id}: missing/dangling evidence`); if (edge.displayIndex !== undefined && (edge.displayIndex < 0 || edge.displayIndex > 100)) errors.push(`edge ${edge.id}: index outside 0..100`); });
   dataset.prominenceSeries.forEach((series) => {

@@ -1,5 +1,6 @@
 import type { EvidenceRef, HistoricalEvent, HistoryDataset, Measurement, PlaceNode, Source } from "./contracts";
 import { people, peopleSources, personEvents } from "./people-corpus";
+import { awardSources, awardWorks } from "./awards-corpus";
 
 const accessedAt = "2026-09-20" as const;
 const source = (id: string, title: string, url: string, evidenceType: Source["evidenceType"], locator?: string): Source => ({ id, title, url, accessedAt, evidenceType, locator });
@@ -19,6 +20,7 @@ export const sources: readonly Source[] = [
   source("ucr-patten", "Fred Patten Papers", "https://library.ucr.edu/collections/fred-patten-papers", "primary"),
   source("con-attendance", "Furry Con Attendance", "https://furryconattendance.com/", "tertiary"),
   ...peopleSources,
+  ...awardSources,
 ];
 
 const rowr = ref("confurence-5", "Rowrbrazzle publication and membership details", "high");
@@ -76,5 +78,5 @@ export const prominenceSeries = [
   { id: "series-furality", label: "Furality", metric: "relative_prominence_index" as const, nonliteral: true as const, pattern: "long-dash" as const, marker: "cross" as const, points: [point(2021, 44, "high", ["furality-history"], "organizer reports Luma attendance"), point(2023, 72, "high", ["furality-history"], "organizer reports Sylva attendance"), point(2024, 94, "high", ["furality-history"], "organizer reports Umbra attendance") ] },
 ];
 
-export { people, personEvents };
-export const historyDataset: HistoryDataset = { version: "v2-people-corpus-2026-09-20", sources, events, personEvents, places, people, edges, prominenceSeries };
+export { awardWorks, people, personEvents };
+export const historyDataset: HistoryDataset = { version: "v3-awards-pilot-2026-09-20", sources, events, personEvents, awardWorks, places, people, edges, prominenceSeries };

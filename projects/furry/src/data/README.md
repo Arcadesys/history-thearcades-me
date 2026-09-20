@@ -2,7 +2,7 @@
 
 This directory keeps measured place/event data separate from the people-events corpus.
 `seed.ts` assembles both into one validated dataset; `people-corpus.ts` owns the first
-source-backed people slice.
+source-backed people slice, and `awards-corpus.ts` owns the literary-awards records.
 
 ## Record model
 
@@ -43,6 +43,13 @@ online platforms. Performance, costuming, international scenes, social-media-era
 creators, women and marginalized builders, and post-2014 history need dedicated source
 passes before the corpus can claim broad coverage.
 
+The awards corpus is a 2015 pilot, not a complete awards archive. It contains the
+literary winners of the 2015 Ursa Major and Cóyotl Awards plus one official Ursa
+recommended work. `winner`, `finalist`, `nominee`, and `recommended` are distinct
+statuses; a reading-list recommendation must never be described as a nomination or win.
+Each work keeps a sourced summary and themes whose basis is explicitly either
+`source-stated` or `editorial-analysis`.
+
 When expanding the corpus:
 
 1. Add sources with stable URLs and locators where available.
@@ -58,6 +65,7 @@ compatibility path. It exposes standard read-only `search` and `fetch` tools so
 people and person-events can be used as a citation-friendly knowledge source.
 
 `prepare_furry_history_feedback` validates a correction or recollection and
-returns a prefilled review email. It does not send, store, or publish feedback.
+returns a prefilled public GitHub issue for the contributor to review and submit.
+It does not send, store, publish, or mutate corpus data.
 That boundary must remain explicit until the project has an abuse-resistant,
 consent-aware submission store and a persistence test.
