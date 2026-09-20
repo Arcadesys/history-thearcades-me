@@ -1,0 +1,39 @@
+name: Data dispute
+description: Propose a correction, source, attribution change, or missing historical context.
+title: "[data dispute] "
+labels:
+  - data-dispute
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping review the public history corpus. You must be signed in to GitHub to submit this public issue. Opening an issue does not change the corpus; maintainers review evidence before making edits.
+  - type: input
+    id: target
+    attributes:
+      label: Stable target ID
+      description: Copy the target ID from the prepared dispute context (for example, a person, event, source, or prominence point).
+      placeholder: "person:example or series-example:2024"
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Proposed correction or dispute
+      description: State the exact wording, date, identity, relationship, or measurement that should be checked.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Supporting sources
+      description: Add links, citations, archive captures, or source details and explain what each establishes.
+    validations:
+      required: true
+  - type: textarea
+    id: attribution
+    attributes:
+      label: Attribution preference
+      description: Explain how you would like credit handled, or say that maintainers should ask first.
+    validations:
+      required: true

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   fetchFurryHistory,
+  buildDisputeIssueUrl,
   furryHistoryToolDefinitions,
   furryHistoryToolHandlers,
   prepareFeedback,
+  resolveDisputeTarget,
   searchFurryHistory,
 } from "./furry-history-mcp";
 
@@ -57,11 +59,72 @@ test("feedback is prepared for review without claiming submission", () => {
   });
   assert.equal(packet.submitted, false);
   assert.equal(packet.status, "prepared-not-sent");
-  assert.match(packet.contactUrl, /^mailto:/);
-  assert.match(packet.body, /Please review it before changing/);
+  assert.equal(packet.target?.kind, "person-event");
+  const issueUrl = new URL(packet.submissionUrl);
+  assert.equal(issueUrl.searchParams.get("template"), "data-dispute.yml");
+  assert.equal(issueUrl.searchParams.get("labels"), "data-dispute");
+  assert.match(issueUrl.searchParams.get("body") ?? "", /Dataset version: v2-people-corpus-2026-09-20/);
+  assert.match(issueUrl.searchParams.get("body") ?? "", /Please ask before attributing/);
+  assert.doesNotMatch(packet.submissionUrl, /^mailto:/);
 });
 
 test("feedback rejects unknown records and unsafe evidence links", () => {
   assert.throws(() => prepareFeedback({ recordId: "event:not-real", feedback: "Correction" }), /does not match/);
+  assert.throws(() => prepareFeedback({ target: { kind: "source", id: "not-real" }, feedback: "Correction" }), /does not match/);
+  assert.throws(() => prepareFeedback({ target: { kind: "not-real", id: "x" }, feedback: "Correction" }), /not supported/);
   assert.throws(() => prepareFeedback({ feedback: "Correction", evidenceUrl: "javascript:alert(1)" }), /HTTP\(S\)/);
+});
+
+test("resolves every supported dispute target kind with stable context", () => {
+  const cases = [
+    [{ target: { kind: "prominence-point", id: "series-anthrocon:2024" } }, "prominence-point"],
+    [{ target: { kind: "timeline-event", id: "anthrocon-1997" } }, "timeline-event"],
+    [{ target: { kind: "source", id: "anthrocon-history" } }, "source"],
+    [{ targetKind: "person", targetId: "fred-patten" }, "person"],
+    [{ target: { kind: "person-event", id: "volle-2005-tim-susman" } }, "person-event"],
+  ] as const;
+  for (const [args, kind] of cases) {
+    const target = resolveDisputeTarget(args);
+    assert.equal(target?.kind, kind);
+    assert.ok(target?.id);
+    assert.ok(target?.claim);
+    assert.equal(target?.datasetVersion, "v2-people-corpus-2026-09-20");
+    assert.equal(target?.canonicalUrl, "https://history.thearcades.me/furry");
+    assert.doesNotMatch(target?.canonicalUrl ?? "", /#/);
+    assert.ok(target?.sourceIds.length);
+  }
+});
+
+test("legacy recordId remains compatible and issue context is encoded exactly", () => {
+  const target = resolveDisputeTarget({ recordId: "event:anthrocon-1997" });
+  assert.equal(target?.kind, "timeline-event");
+  const issueUrl = buildDisputeIssueUrl(target ?? null, { feedback: "A correction with punctuation: café & friends.", evidenceUrl: "https://example.com/a?b=1&c=2", credit: "Use my handle" });
+  const parsed = new URL(issueUrl);
+  const body = parsed.searchParams.get("body") ?? "";
+  assert.match(parsed.searchParams.get("title") ?? "", /^\[data dispute\] timeline-event:/);
+  assert.match(body, /café & friends\./);
+  assert.match(body, /https:\/\/example\.com\/a\?b=1&c=2/);
+  assert.match(body, /Use my handle/);
+  assert.match(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry/);
+  assert.doesNotMatch(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry#/);
+  assert.match(body, /Stable target ID: anthrocon-1997/);
+});
+
+test("validates recordId and expanded target independently", () => {
+  assert.throws(
+    () => prepareFeedback({ recordId: "event:not-real", target: { kind: "person", id: "fred-patten" }, feedback: "Correction" }),
+    /recordId does not match/,
+  );
+  assert.throws(
+    () => prepareFeedback({ recordId: "person:fred-patten", target: { kind: "source", id: "not-real" }, feedback: "Correction" }),
+    /target reference does not match/,
+  );
+  assert.throws(
+    () => prepareFeedback({ recordId: "person:fred-patten", target: { kind: "source", id: "anthrocon-history" }, feedback: "Correction" }),
+    /conflicting corpus records/,
+  );
+  const matching = prepareFeedback({ recordId: "event:volle-2005-tim-susman", target: { kind: "person-event", id: "volle-2005-tim-susman" }, feedback: "Correction" });
+  assert.equal(matching.target?.kind, "person-event");
+  assert.equal(matching.target?.id, "volle-2005-tim-susman");
+  assert.equal(matching.submitted, false);
 });

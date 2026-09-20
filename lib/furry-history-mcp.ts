@@ -1,14 +1,18 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { historyDataset } from "@/projects/furry/src/data/seed";
-import type { EvidenceRef, PersonEvent, PersonNode, Source } from "@/projects/furry/src/data/contracts";
+import type { EvidenceRef, HistoricalEvent, PersonEvent, PersonNode, ProminencePoint, ProminenceSeries, Source } from "@/projects/furry/src/data/contracts";
 
 const BOARD_URL = "https://history.thearcades.me/furry";
-const FEEDBACK_EMAIL = "austen.crowder@gmail.com";
+const GITHUB_ISSUES_URL = "https://github.com/Arcadesys/history-thearcades-me/issues/new";
 const MAX_RESULTS = 20;
 const SEARCH_STOP_WORDS = new Set(["a", "an", "and", "did", "for", "in", "is", "of", "on", "show", "the", "to", "was", "what", "when", "who"]);
 
 type SearchResult = { id: string; title: string; url: string };
 type FetchResult = { id: string; title: string; text: string; url: string; metadata: Record<string, unknown> };
+
+export type DisputeTargetKind = "prominence-point" | "timeline-event" | "source" | "person" | "person-event";
+export type DisputeTarget = { kind: DisputeTargetKind; id: string; claim: string; datasetVersion: string; canonicalUrl: string; sourceIds: readonly string[] };
+export type DisputeDetails = { feedback: string; evidenceUrl?: string; credit?: string };
 
 const sourceById = new Map(historyDataset.sources.map((source) => [source.id, source]));
 const personById = new Map(historyDataset.people.map((person) => [person.id, person]));
@@ -189,30 +193,124 @@ export function fetchFurryHistory(id: string): FetchResult | undefined {
   return undefined;
 }
 
+function eventClaim(event: HistoricalEvent): string {
+  return `${event.dateStart}${event.dateEnd ? ` through ${event.dateEnd}` : ""} — ${event.title}: ${event.summary}`;
+}
+
+function personEventClaim(event: PersonEvent): string {
+  const person = personById.get(event.personId);
+  return `${event.dateStart}${event.dateEnd ? ` through ${event.dateEnd}` : ""} — ${person?.label ?? event.personId}: ${event.headline} — ${event.description}`;
+}
+
+function prominencePointId(series: ProminenceSeries, point: ProminencePoint): string {
+  return `${series.id}:${point.year}`;
+}
+
+function targetFromRecordId(recordId: string): DisputeTarget | undefined {
+  const [kind, id] = recordId.split(":", 2);
+  if (!id) return undefined;
+  if (kind === "person") {
+    const person = personById.get(id);
+    return person ? { kind: "person", id: person.id, claim: `${person.label} (${person.relationshipToFandom})`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: person.evidence.map((item) => item.sourceId) } : undefined;
+  }
+  if (kind === "event") {
+    const timelineEvent = historyDataset.events.find((item) => item.id === id);
+    if (timelineEvent) return { kind: "timeline-event", id: timelineEvent.id, claim: eventClaim(timelineEvent), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: timelineEvent.evidence.map((item) => item.sourceId) };
+    const personEvent = historyDataset.personEvents.find((item) => item.id === id);
+    if (personEvent) return { kind: "person-event", id: personEvent.id, claim: personEventClaim(personEvent), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: personEvent.evidence.map((item) => item.sourceId) };
+  }
+  return undefined;
+}
+
+function targetFromExpandedRef(args: Record<string, unknown>): DisputeTarget | undefined {
+  const target = args.target;
+  const kind = typeof args.targetKind === "string" ? args.targetKind : target && typeof target === "object" ? (target as Record<string, unknown>).kind : undefined;
+  const id = typeof args.targetId === "string" ? args.targetId : target && typeof target === "object" ? (target as Record<string, unknown>).id : typeof target === "string" ? target : undefined;
+  if (typeof kind !== "string" || typeof id !== "string") return undefined;
+  if (!["prominence-point", "timeline-event", "source", "person", "person-event"].includes(kind)) throw new Error("target kind is not supported.");
+  if (kind === "source") {
+    const source = sourceById.get(id);
+    return source ? { kind: "source", id: source.id, claim: `${source.title}: ${source.url}`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: [source.id] } : undefined;
+  }
+  if (kind === "person") return targetFromRecordId(`person:${id}`);
+  if (kind === "timeline-event") {
+    const event = historyDataset.events.find((item) => item.id === id);
+    return event ? { kind: "timeline-event", id: event.id, claim: eventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
+  }
+  if (kind === "person-event") {
+    const event = historyDataset.personEvents.find((item) => item.id === id);
+    return event ? { kind: "person-event", id: event.id, claim: personEventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
+  }
+  const separator = id.lastIndexOf(":");
+  const seriesId = separator === -1 ? id : id.slice(0, separator);
+  const year = separator === -1 ? NaN : Number(id.slice(separator + 1));
+  const series = historyDataset.prominenceSeries.find((item) => item.id === seriesId);
+  const point = series?.points.find((item) => item.year === year);
+  return series && point ? { kind: "prominence-point", id: prominencePointId(series, point), claim: `${series.label}, ${point.year}: ${point.value} of 100 relative prominence. ${point.basis}`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: [...point.sourceIds] } : undefined;
+}
+
+export function resolveDisputeTarget(args: unknown): DisputeTarget | undefined {
+  if (!args || typeof args !== "object") throw new Error("Arguments must be an object.");
+  const recordId = textArg(args, "recordId", { max: 160 });
+  const input = args as Record<string, unknown>;
+  const hasExpandedTarget = "target" in input || "targetId" in input || "targetKind" in input;
+  const recordTarget = recordId ? targetFromRecordId(recordId) : undefined;
+  const expandedTarget = hasExpandedTarget ? targetFromExpandedRef(input) : undefined;
+  if (recordId && !recordTarget) throw new Error("recordId does not match a corpus record.");
+  if (hasExpandedTarget && !expandedTarget) throw new Error("target reference does not match a corpus record.");
+  if (recordTarget && expandedTarget && (recordTarget.kind !== expandedTarget.kind || recordTarget.id !== expandedTarget.id)) {
+    throw new Error("recordId and target reference identify conflicting corpus records.");
+  }
+  return expandedTarget ?? recordTarget;
+}
+
+export function buildDisputeIssueUrl(target: DisputeTarget | null, details: DisputeDetails): string {
+  const subject = target ? `[data dispute] ${target.kind}: ${target.id}` : "[data dispute] General corpus feedback";
+  const body = [
+    "## Corpus context",
+    `- Target kind: ${target?.kind ?? "general"}`,
+    `- Stable target ID: ${target?.id ?? "general-feedback"}`,
+    `- Claim: ${target?.claim ?? "General correction, missing history, or corpus question"}`,
+    `- Dataset version: ${target?.datasetVersion ?? historyDataset.version}`,
+    `- Canonical page: ${target?.canonicalUrl ?? BOARD_URL}`,
+    `- Source IDs: ${target?.sourceIds.length ? target.sourceIds.join(", ") : "none recorded"}`,
+    "",
+    "## Proposed correction or dispute",
+    details.feedback,
+    "",
+    "## Supporting sources",
+    details.evidenceUrl || "Please add links, citations, archive captures, or other source details here.",
+    "",
+    "## Attribution preference",
+    details.credit || "Please ask before attributing this contribution.",
+    "",
+    "## Review prompts",
+    "- What exact wording, date, identity, relationship, or measurement should be corrected?",
+    "- Which sources support the proposed correction, and what do they establish?",
+    "- How should attribution or credit be handled?",
+    "",
+    "This issue is a public proposed correction. It does not change, submit, or publish corpus data automatically; maintainers review evidence before any edit.",
+  ].join("\n");
+  const params = new URLSearchParams({ template: "data-dispute.yml", labels: "data-dispute", title: subject, body });
+  return `${GITHUB_ISSUES_URL}?${params.toString()}`;
+}
+
 export function prepareFeedback(args: unknown) {
   const recordId = textArg(args, "recordId", { max: 160 });
-  if (recordId && !fetchFurryHistory(recordId)) throw new Error("recordId does not match a corpus person or event.");
+  const target = resolveDisputeTarget(args);
+  const hasExpandedTarget = Boolean(args && typeof args === "object" && ("target" in args || "targetId" in args || "targetKind" in args));
+  if ((recordId || hasExpandedTarget) && !target) throw new Error("target reference does not match a corpus record.");
   const feedback = textArg(args, "feedback", { required: true, max: 1200 });
   const evidenceUrl = textArg(args, "evidenceUrl", { max: 500 });
   if (evidenceUrl && !/^https?:\/\//i.test(evidenceUrl)) throw new Error("evidenceUrl must be an absolute HTTP(S) URL.");
   const credit = textArg(args, "credit", { max: 80 });
-  const subject = `Furry History Board feedback${recordId ? ` — ${recordId}` : ""}`;
-  const body = [
-    recordId ? `Corpus record: ${recordId}` : "Corpus record: general feedback or missing history",
-    `Feedback: ${feedback}`,
-    evidenceUrl ? `Supporting source: ${evidenceUrl}` : "Supporting source: not supplied",
-    credit ? `Credit preference: ${credit}` : "Credit preference: please ask before attribution",
-    "",
-    "This message is a proposed correction or recollection. Please review it before changing the public historical record.",
-  ].join("\n");
   return {
     submitted: false,
     status: "prepared-not-sent",
     recordId: recordId || null,
-    reviewPolicy: "Feedback remains a proposed correction until its evidence and attribution are reviewed.",
-    contactUrl: `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-    subject,
-    body,
+    target,
+    reviewPolicy: "Feedback becomes a public proposed correction only after the contributor signs in to GitHub and submits an issue; maintainers review evidence before changing the historical record.",
+    submissionUrl: buildDisputeIssueUrl(target ?? null, { feedback, evidenceUrl: evidenceUrl || undefined, credit: credit || undefined }),
   };
 }
 
@@ -234,11 +332,14 @@ export const furryHistoryToolDefinitions: Tool[] = [
   {
     name: "prepare_furry_history_feedback",
     title: "Prepare furry-history feedback",
-    description: "Use this when someone has a correction, recollection, missing person, or supporting source. It prepares a review email but does not send, store, or publish anything.",
+    description: "Use this when someone has a correction, recollection, missing history, or supporting source. It prepares a public GitHub dispute issue for the contributor to review and submit; it does not send, store, publish, or mutate corpus data.",
     inputSchema: {
       type: "object",
       properties: {
-        recordId: { type: "string", description: "Optional person: or event: ID from search." },
+        recordId: { type: "string", description: "Compatibility reference: person: or event: ID from search." },
+        target: { type: "object", description: "Expanded target reference. Use kind plus stable id for a prominence-point, timeline-event, source, person, or person-event.", properties: { kind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event"] }, id: { type: "string" } }, required: ["kind", "id"], additionalProperties: false },
+        targetKind: { type: "string", enum: ["prominence-point", "timeline-event", "source", "person", "person-event"], description: "Expanded target kind, used with targetId." },
+        targetId: { type: "string", description: "Expanded stable target ID, used with targetKind." },
         feedback: { type: "string", maxLength: 1200, description: "The correction, recollection, missing context, or suggested addition." },
         evidenceUrl: { type: "string", description: "Optional absolute HTTP(S) link to supporting evidence." },
         credit: { type: "string", maxLength: 80, description: "Optional attribution preference; defaults to asking before attribution." },

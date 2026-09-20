@@ -12,7 +12,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     { name: "history-thearcades-furry", version: "1.0.0" },
     {
       capabilities: { tools: {} },
-      instructions: "Search before fetch. Preserve claim confidence and the distinction between fandom participation and external influence. The feedback tool prepares a review packet; it does not send, store, or publish feedback.",
+      instructions: "This is the public Alpha MCP for the history hub. Search before fetch. Preserve claim confidence and the distinction between fandom participation and external influence. The feedback tool prepares a public GitHub dispute issue; it requires the contributor to review and submit it, and never mutates corpus data or claims submission.",
     },
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: furryHistoryToolDefinitions }));
