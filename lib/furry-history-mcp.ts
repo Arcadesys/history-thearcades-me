@@ -49,10 +49,6 @@ function canonicalUrl(evidence: readonly EvidenceRef[]): string {
   return evidenceSources(evidence)[0]?.url ?? BOARD_URL;
 }
 
-function boardRecordUrl(fragment: string): string {
-  return `${BOARD_URL}#${fragment}`;
-}
-
 function searchablePerson(person: PersonNode): string {
   return [person.label, ...person.aliases, ...person.roles, person.relationshipToFandom].join(" ").toLocaleLowerCase();
 }
@@ -215,13 +211,13 @@ function targetFromRecordId(recordId: string): DisputeTarget | undefined {
   if (!id) return undefined;
   if (kind === "person") {
     const person = personById.get(id);
-    return person ? { kind: "person", id: person.id, claim: `${person.label} (${person.relationshipToFandom})`, datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`person-${person.id}`), sourceIds: person.evidence.map((item) => item.sourceId) } : undefined;
+    return person ? { kind: "person", id: person.id, claim: `${person.label} (${person.relationshipToFandom})`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: person.evidence.map((item) => item.sourceId) } : undefined;
   }
   if (kind === "event") {
     const timelineEvent = historyDataset.events.find((item) => item.id === id);
-    if (timelineEvent) return { kind: "timeline-event", id: timelineEvent.id, claim: eventClaim(timelineEvent), datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`timeline-event-${timelineEvent.id}`), sourceIds: timelineEvent.evidence.map((item) => item.sourceId) };
+    if (timelineEvent) return { kind: "timeline-event", id: timelineEvent.id, claim: eventClaim(timelineEvent), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: timelineEvent.evidence.map((item) => item.sourceId) };
     const personEvent = historyDataset.personEvents.find((item) => item.id === id);
-    if (personEvent) return { kind: "person-event", id: personEvent.id, claim: personEventClaim(personEvent), datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`person-event-${personEvent.id}`), sourceIds: personEvent.evidence.map((item) => item.sourceId) };
+    if (personEvent) return { kind: "person-event", id: personEvent.id, claim: personEventClaim(personEvent), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: personEvent.evidence.map((item) => item.sourceId) };
   }
   return undefined;
 }
@@ -234,23 +230,23 @@ function targetFromExpandedRef(args: Record<string, unknown>): DisputeTarget | u
   if (!["prominence-point", "timeline-event", "source", "person", "person-event"].includes(kind)) throw new Error("target kind is not supported.");
   if (kind === "source") {
     const source = sourceById.get(id);
-    return source ? { kind: "source", id: source.id, claim: `${source.title}: ${source.url}`, datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`source-${source.id}`), sourceIds: [source.id] } : undefined;
+    return source ? { kind: "source", id: source.id, claim: `${source.title}: ${source.url}`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: [source.id] } : undefined;
   }
   if (kind === "person") return targetFromRecordId(`person:${id}`);
   if (kind === "timeline-event") {
     const event = historyDataset.events.find((item) => item.id === id);
-    return event ? { kind: "timeline-event", id: event.id, claim: eventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`timeline-event-${event.id}`), sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
+    return event ? { kind: "timeline-event", id: event.id, claim: eventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
   }
   if (kind === "person-event") {
     const event = historyDataset.personEvents.find((item) => item.id === id);
-    return event ? { kind: "person-event", id: event.id, claim: personEventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`person-event-${event.id}`), sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
+    return event ? { kind: "person-event", id: event.id, claim: personEventClaim(event), datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: event.evidence.map((item) => item.sourceId) } : undefined;
   }
   const separator = id.lastIndexOf(":");
   const seriesId = separator === -1 ? id : id.slice(0, separator);
   const year = separator === -1 ? NaN : Number(id.slice(separator + 1));
   const series = historyDataset.prominenceSeries.find((item) => item.id === seriesId);
   const point = series?.points.find((item) => item.year === year);
-  return series && point ? { kind: "prominence-point", id: prominencePointId(series, point), claim: `${series.label}, ${point.year}: ${point.value} of 100 relative prominence. ${point.basis}`, datasetVersion: historyDataset.version, canonicalUrl: boardRecordUrl(`prominence-point-${series.id}-${point.year}`), sourceIds: [...point.sourceIds] } : undefined;
+  return series && point ? { kind: "prominence-point", id: prominencePointId(series, point), claim: `${series.label}, ${point.year}: ${point.value} of 100 relative prominence. ${point.basis}`, datasetVersion: historyDataset.version, canonicalUrl: BOARD_URL, sourceIds: [...point.sourceIds] } : undefined;
 }
 
 export function resolveDisputeTarget(args: unknown): DisputeTarget | undefined {

@@ -89,7 +89,8 @@ test("resolves every supported dispute target kind with stable context", () => {
     assert.ok(target?.id);
     assert.ok(target?.claim);
     assert.equal(target?.datasetVersion, "v2-people-corpus-2026-09-20");
-    assert.match(target?.canonicalUrl ?? "", /^https:\/\/history\.thearcades\.me\/furry#/);
+    assert.equal(target?.canonicalUrl, "https://history.thearcades.me/furry");
+    assert.doesNotMatch(target?.canonicalUrl ?? "", /#/);
     assert.ok(target?.sourceIds.length);
   }
 });
@@ -104,5 +105,7 @@ test("legacy recordId remains compatible and issue context is encoded exactly", 
   assert.match(body, /café & friends\./);
   assert.match(body, /https:\/\/example\.com\/a\?b=1&c=2/);
   assert.match(body, /Use my handle/);
-  assert.match(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry#timeline-event-anthrocon-1997/);
+  assert.match(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry/);
+  assert.doesNotMatch(body, /Canonical page: https:\/\/history\.thearcades\.me\/furry#/);
+  assert.match(body, /Stable target ID: anthrocon-1997/);
 });
