@@ -9,6 +9,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./projects/furry/src/test/setup.ts"],
-    include: ["projects/furry/src/**/*.test.ts", "projects/furry/src/**/*.test.tsx"],
+    include: [
+      "projects/furry/src/**/*.test.ts",
+      "projects/furry/src/**/*.test.tsx",
+      "app/**/*.test.ts",
+      "app/**/*.test.tsx",
+      "data/**/*.test.ts",
+    ],
   },
 });
