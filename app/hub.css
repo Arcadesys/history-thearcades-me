@@ -1,3 +1,6 @@
+.alpha-banner { display: flex; gap: .9rem; align-items: baseline; padding: .8rem max(1rem, calc((100% - 1464px) / 2)); border-bottom: 3px solid #f6d365; background: #17110e; color: #fffaf2; font-size: .98rem; line-height: 1.35; }
+.alpha-banner strong { color: #f6d365; font-size: 1.08rem; letter-spacing: .08em; text-transform: uppercase; }
+.alpha-banner span { max-width: 75ch; }
 .history-hub { width: min(1120px, calc(100% - 3rem)); margin: 0 auto; padding: 3rem 0 5rem; }
 .history-hub__eyebrow { margin: 0 0 .75rem; color: var(--rust-strong); font-size: .9rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .history-hub h1 { max-width: 12ch; margin: 0; font-size: clamp(3rem, 9vw, 7rem); line-height: .95; }
@@ -10,3 +13,4 @@
 .history-project-card a { display: inline-flex; min-height: 3rem; align-items: center; justify-content: center; width: fit-content; padding: .6rem 1rem; border: 2px solid var(--rust-strong); border-radius: .3rem; background: var(--rust); color: var(--on-rust); font-weight: 850; text-decoration: none; }
 .history-hub__footer { margin-top: 3rem; color: var(--ink-muted); font-size: .95rem; }
 @media (max-width: 700px) { .history-hub { width: min(100% - 1.25rem, 1120px); padding-top: 2rem; } }
+@media (max-width: 700px) { .alpha-banner { align-items: flex-start; flex-direction: column; gap: .2rem; padding: .75rem 1rem; } }

@@ -1,0 +1,8 @@
+.dispute-action { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem .7rem; margin-top: .7rem; }
+.dispute-link { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; padding: .55rem .9rem; border: 2px solid var(--rust-strong); border-radius: .3rem; background: var(--rust); color: var(--on-rust); font-size: .88rem; font-weight: 850; line-height: 1.1; text-decoration: none; }
+.dispute-link:hover { background: var(--rust-strong); color: var(--on-rust); }
+.dispute-disclosure { color: var(--ink-muted); font-size: .82rem; line-height: 1.35; }
+.prominence-table .dispute-action { margin-top: 0; min-width: 13rem; }
+.prominence-table .dispute-disclosure { display: block; max-width: 17ch; }
+.event-timeline .dispute-action { grid-column: 2; }
+@media (max-width: 520px) { .dispute-action { align-items: flex-start; flex-direction: column; } }
