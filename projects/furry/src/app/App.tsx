@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { events, historyDataset, prominenceSeries, sources } from "../data/seed";
-import type { HistoricalEvent, ProminenceSeries } from "../data/contracts";
+import { awardWorks, events, historyDataset, prominenceSeries, sources } from "../data/seed";
+import type { AwardWork, HistoricalEvent, ProminenceSeries } from "../data/contracts";
 import { ProminenceChart } from "../features/chart/ProminenceChart";
 import { ProminenceTable } from "../features/chart/ProminenceTable";
 import { EvidenceRegion, type EvidenceItem } from "../features/evidence/EvidenceRegion";
@@ -95,6 +95,40 @@ function EventTimeline({ items, selectedYear }: { items: readonly HistoricalEven
   </section>;
 }
 
+const sourceById = new Map(sources.map((source) => [source.id, source]));
+
+function awardProgramLabel(program: "ursa-major" | "coyotl") {
+  return program === "ursa-major" ? "Ursa Major Awards" : "Cóyotl Awards";
+}
+
+function AwardWorkCard({ work }: { readonly work: AwardWork }) {
+  const target = makeDisputeTarget("award-work", work.id, `${work.title} by ${work.creators.map((creator) => creator.name).join(", ")}. ${work.summary}`, work.evidence.map((item) => item.sourceId));
+  const citedSources = [...new Set([
+    ...work.evidence.map((item) => item.sourceId),
+    ...work.summaryEvidence.map((item) => item.sourceId),
+    ...work.themes.flatMap((theme) => theme.evidence.map((item) => item.sourceId)),
+  ])].map((id) => sourceById.get(id)).filter(Boolean);
+  return <article className="award-work-card">
+    <div className="award-work-card__eyebrow">{work.publishedYear} · {work.format.replaceAll("-", " ")}</div>
+    <h3>{work.title}</h3>
+    <p className="award-work-card__credit">{work.creators.map((creator) => `${creator.role === "editor" ? "Edited" : "Written"} by ${creator.name}`).join("; ")}</p>
+    <ul className="award-recognitions" aria-label={`Recognition for ${work.title}`}>{work.recognitions.map((recognition) => <li key={`${recognition.program}-${recognition.category}`}><strong>{recognition.standing}</strong> · {awardProgramLabel(recognition.program)} · {recognition.category}</li>)}</ul>
+    <p>{work.summary}</p>
+    <h4>Themes</h4>
+    <ul className="award-themes">{work.themes.map((theme) => <li key={theme.label}><span>{theme.label}</span><small>{theme.basis === "source-stated" ? "Source-stated" : "Editorial analysis"}</small></li>)}</ul>
+    <details><summary>Sources for this record</summary><ul className="award-sources">{citedSources.map((source) => source ? <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a> <span>({source.evidenceType})</span></li> : null)}</ul></details>
+    <DisputeLink target={target} />
+  </article>;
+}
+
+function AwardsRegion() {
+  return <section className="awards-region" aria-labelledby="awards-heading">
+    <div className="section-heading-row"><div><h2 id="awards-heading">Literary awards research</h2><p>A source-backed 2015 pilot spanning Ursa Major and Cóyotl recognition.</p></div><span className="record-count">{awardWorks.length} researched works</span></div>
+    <p className="awards-method-note"><strong>Status matters:</strong> “Recommended” means a work appeared on an official reading list; it does not mean finalist or winner. Themes marked “Editorial analysis” are our interpretation of cited summaries, not claims made by an award body.</p>
+    <div className="award-work-grid">{awardWorks.map((work) => <AwardWorkCard key={work.id} work={work} />)}</div>
+  </section>;
+}
+
 export function App() {
   const { preference, setPreference } = useTheme();
   const initialQuery = useMemo(() => parseQuery("When did Fur Affinity become dominant?"), []);
@@ -133,6 +167,7 @@ export function App() {
     <nav className="lens-nav" aria-label="Historical lenses">{LENS_LABELS.map((lens) => <button type="button" key={lens} aria-pressed={activeLens === lens} className={activeLens === lens ? "lens-button active" : "lens-button"} onClick={() => chooseLens(lens)}>{lens}</button>)}<p>View history through different lenses.</p></nav>
     <div className={evidenceOpen ? "board-layout evidence-is-open" : "board-layout"}><div className="board-main"><ProminenceChart series={visibleSeries} selectedYear={selectedYear} onSelectedYearChange={setSelectedYear} startYear={START_YEAR} endYear={END_YEAR} /><TimelineScrubber min={START_YEAR} max={END_YEAR} value={selectedYear} onChange={setSelectedYear} /><button type="button" className="table-toggle" aria-expanded={tableOpen} onClick={() => setTableOpen((open) => !open)}>{tableOpen ? "Hide data table" : "View data table"}</button>{tableOpen ? <ProminenceTable series={visibleSeries} /> : null}</div><EvidenceRegion items={evidence} open={evidenceOpen} onOpenChange={setEvidenceOpen} showToggle={false} /></div>
     <EventTimeline items={filteredEvents} selectedYear={selectedYear} />
+    <AwardsRegion />
     <footer className="site-footer"><p>Sampler version {historyDataset.version}. Alpha: this prototype is intentionally incomplete, source-backed, and open to reviewed corrections.</p></footer>
   </main>;
 }

@@ -21,6 +21,15 @@ describe("history dataset", () => {
     expect(historyDataset.personEvents.filter((event) => event.datePrecision === "range").every((event) => event.dateEnd)).toBe(true);
     expect(historyDataset.personEvents.filter((event) => event.datePrecision !== "range").every((event) => !event.dateEnd)).toBe(true);
   });
+  it("keeps award standing, summaries, themes, and historical bylines explicit", () => {
+    expect(historyDataset.awardWorks).toHaveLength(7);
+    expect(historyDataset.awardWorks.every((work) => work.summaryEvidence.length > 0 && work.themes.length > 0)).toBe(true);
+    expect(historyDataset.awardWorks.flatMap((work) => work.recognitions).some((item) => item.standing === "recommended")).toBe(true);
+    expect(historyDataset.awardWorks.flatMap((work) => work.recognitions).some((item) => item.standing === "winner")).toBe(true);
+    const paintedCat = historyDataset.awardWorks.find((work) => work.id === "painted-cat-2015");
+    expect(paintedCat?.creators).toContainEqual({ name: "Austen Crowder", role: "author", personId: "austen-tucker" });
+    expect(historyDataset.people.find((person) => person.id === "austen-tucker")?.aliases).toContain("Austen Crowder");
+  });
   it("keeps the bounded sampler and all four domains represented", () => {
     const measurements = [
       ...historyDataset.places.flatMap((place) => place.measurements),
